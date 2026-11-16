@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRONLINE — Tactical FPS</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #0b0e12; font-family: "Segoe UI", Arial, sans-serif; color: #e8ecf1;
+    user-select: none; -webkit-user-select: none; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+  #crosshair .dot { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px;
+    background: #e8ecf1; border-radius: 50%; box-shadow: 0 0 3px #000; }
+  #crosshair .arm { position: absolute; background: #e8ecf1; box-shadow: 0 0 3px #000; }
+  #hitmarker { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
+    margin: -13px 0 0 -13px; opacity: 0; }
+  #hitmarker::before, #hitmarker::after { content: ""; position: absolute; left: 12px; top: 0;
+    width: 2px; height: 26px; background: #ffdf5e; transform: rotate(45deg); }
+  #hitmarker::after { transform: rotate(-45deg); }
+  #hitmarker.kill::before, #hitmarker.kill::after { background: #ff4d4d; }
+
+  #topbar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px; font-weight: 700; }
+  .teambox { padding: 6px 14px; border-radius: 4px; font-size: 17px; letter-spacing: 1px;
+    background: rgba(10,14,20,.72); border: 1px solid rgba(255,255,255,.14); }
+  .teambox.azure { color: #6db3ff; } .teambox.ember { color: #ff7a6b; }
+  #timer { font-size: 22px; min-width: 64px; text-align: center; padding: 4px 10px;
+    background: rgba(10,14,20,.72); border: 1px solid rgba(255,255,255,.14); border-radius: 4px; }
+  #timer.low { color: #ff5a4d; }
+  #roundlabel { position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; letter-spacing: 2px; color: #aeb8c4; text-transform: uppercase; }
+
+  #healthbox { position: absolute; left: 22px; bottom: 20px; }
+  #healthnum { font-size: 42px; font-weight: 800; line-height: 1; text-shadow: 0 2px 6px #000; }
+  #healthbar { width: 220px; height: 10px; margin-top: 6px; background: rgba(255,255,255,.15);
+    border-radius: 3px; overflow: hidden; }
+  #healthfill { height: 100%; width: 100%; background: #57d977; transition: width .15s; }
+  #armorline { margin-top: 4px; font-size: 13px; color: #9fd0ff; }
+
+  #ammobox { position: absolute; right: 22px; bottom: 20px; text-align: right; }
+  #ammonum { font-size: 42px; font-weight: 800; line-height: 1; text-shadow: 0 2px 6px #000; }
+  #ammonum small { font-size: 20px; color: #aeb8c4; }
+  #weaponname { margin-top: 4px; font-size: 14px; letter-spacing: 1px; color: #cfd8e3; }
+  #moneyline { margin-top: 2px; font-size: 15px; color: #7ee2a0; font-weight: 700; }
+
+  #killfeed { position: absolute; right: 22px; top: 16px; text-align: right; font-size: 13px;
+    line-height: 1.7; }
+  #killfeed div { background: rgba(10,14,20,.6); padding: 2px 8px; border-radius: 3px; margin-top: 3px; }
+  #killfeed .az { color: #6db3ff; } #killfeed .em { color: #ff7a6b; }
+
+  #banner { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%);
+    text-align: center; text-shadow: 0 2px 10px #000; }
+  #banner h1 { margin: 0; font-size: 44px; letter-spacing: 6px; }
+  #banner p { margin: 6px 0 0; font-size: 16px; color: #cfd8e3; }
+  #banner.win h1 { color: #57d977; } #banner.lose h1 { color: #ff5a4d; }
+
+  #dmg { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    box-shadow: inset 0 0 90px 30px rgba(255, 30, 20, .55); }
+  #lowhp { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    box-shadow: inset 0 0 120px 40px rgba(255, 0, 0, .35); }
+
+  #hint { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+    font-size: 13px; color: #aeb8c4; background: rgba(10,14,20,.6); padding: 5px 12px;
+    border-radius: 4px; }
+
+  /* ---------- Buy menu ---------- */
+  #buy { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 460px; background: rgba(8, 11, 16, .94); border: 1px solid #2a3644;
+    border-radius: 8px; padding: 18px 20px; pointer-events: auto; z-index: 20; }
+  #buy h2 { margin: 0 0 4px; font-size: 19px; letter-spacing: 2px; }
+  #buy .sub { font-size: 13px; color: #9fb0c0; margin-bottom: 12px; }
+  .buyrow { display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 10px; border: 1px solid #223040; border-radius: 5px; margin-top: 7px;
+    cursor: pointer; background: #111826; }
+  .buyrow:hover { border-color: #6db3ff; }
+  .buyrow.owned { opacity: .55; cursor: default; }
+  .buyrow.afford-no { opacity: .45; }
+  .buyrow b { font-size: 15px; } .buyrow span { font-size: 12px; color: #9fb0c0; display: block; }
+  .buyrow .price { color: #7ee2a0; font-weight: 700; font-size: 15px; }
+  #buyclose { margin-top: 12px; font-size: 12px; color: #9fb0c0; text-align: center; }
+
+  /* ---------- Screens ---------- */
+  .screen { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, #1a2636 0%, #0b0e12 70%); }
+  .screen h1 { margin: 0; font-size: 56px; letter-spacing: 10px; color: #f2f5f8; }
+  .screen h1 .em { color: #ff7a6b; }
+  .screen h2 { margin: 6px 0 0; font-size: 15px; letter-spacing: 4px; color: #8fa3b8;
+    text-transform: uppercase; font-weight: 600; }
+  .screen p { max-width: 560px; line-height: 1.6; color: #c3cedb; font-size: 15px; }
+  .screen .keys { font-size: 13px; color: #8fa3b8; line-height: 1.9; }
+  .screen .keys b { color: #e8ecf1; }
+  .bigbtn { margin-top: 22px; padding: 14px 42px; font-size: 18px; font-weight: 700;
+    letter-spacing: 2px; color: #0b0e12; background: #ffb340; border: 0; border-radius: 6px;
+    cursor: pointer; }
+  .bigbtn:hover { background: #ffc65e; }
+  .smallnote { margin-top: 16px; font-size: 12px; color: #6d7d8d; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud" class="hidden">
+  <div id="crosshair">
+    <div class="dot"></div>
+    <div class="arm" id="armT" style="left:-1px;top:-14px;width:2px;height:8px"></div>
+    <div class="arm" id="armB" style="left:-1px;top:6px;width:2px;height:8px"></div>
+    <div class="arm" id="armL" style="left:-14px;top:-1px;width:8px;height:2px"></div>
+    <div class="arm" id="armR" style="left:6px;top:-1px;width:8px;height:2px"></div>
+  </div>
+  <div id="hitmarker"></div>
+  <div id="topbar">
+    <div class="teambox azure">AZURE <span id="scoreA">0</span></div>
+    <div id="timer">1:40</div>
+    <div class="teambox ember"><span id="scoreE">0</span> EMBER</div>
+  </div>
+  <div id="roundlabel">ROUND 1 &mdash; FIRST TO 5</div>
+  <div id="healthbox">
+    <div id="healthnum">100</div>
+    <div id="healthbar"><div id="healthfill"></div></div>
+    <div id="armorline">ARMOR 0</div>
+  </div>
+  <div id="ammobox">
+    <div id="ammonum">12 <small>/ &infin;</small></div>
+    <div id="weaponname">P9 SIDEARM</div>
+    <div id="moneyline">$800</div>
+  </div>
+  <div id="killfeed"></div>
+  <div id="banner" class="hidden"><h1></h1><p></p></div>
+  <div id="dmg"></div>
+  <div id="lowhp"></div>
+  <div id="hint">WASD move &middot; Mouse aim &middot; Click fire &middot; R reload &middot; B buy &middot; Right-click scope</div>
+
+  <div id="buy" class="hidden">
+    <h2>BUY EQUIPMENT</h2>
+    <div class="sub">Buy phase &mdash; press <b>B</b> or click to close. Keys 1&ndash;5 buy.</div>
+    <div id="buylist"></div>
+    <div id="buyclose">Your money: <b id="buymoney">$800</b></div>
+  </div>
+</div>
+
+<div id="menu" class="screen">
+  <h1>IRON<span class="em">LINE</span></h1>
+  <h2>Round-based tactical FPS &middot; Ironworks Yard</h2>
+  <p>Azure versus Ember, four against four. Win the round by eliminating the enemy team
+  or by holding the uplink beacon at mid. Earn money for kills and round wins, then spend
+  it on better weapons between rounds. Stand still and fire in short bursts &mdash;
+  accuracy beats spray.</p>
+  <div class="keys">
+    <b>W A S D</b> move &nbsp;&middot;&nbsp; <b>Mouse</b> aim &nbsp;&middot;&nbsp; <b>Click</b> fire<br>
+    <b>R</b> reload &nbsp;&middot;&nbsp; <b>B</b> buy menu &nbsp;&middot;&nbsp; <b>1 / 2 / 3</b> switch weapon<br>
+    <b>Shift</b> walk slow &amp; steady &nbsp;&middot;&nbsp; <b>Space</b> jump &nbsp;&middot;&nbsp; <b>Tab</b> scoreboard
+  </div>
+  <button class="bigbtn" id="playbtn">DEPLOY</button>
+  <div class="smallnote">Single-player vs bots &middot; headphones recommended &middot; best in desktop Chrome</div>
+</div>
+
+<div id="endscreen" class="screen hidden">
+  <h1 id="endtitle">VICTORY</h1>
+  <h2 id="endsub">Azure takes the match</h2>
+  <p id="endstats"></p>
+  <button class="bigbtn" id="againbtn">PLAY AGAIN</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
